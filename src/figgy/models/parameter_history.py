@@ -1,9 +1,9 @@
-from models.restore_config import RestoreConfig
+from figgy.models.restore_config import RestoreConfig
 from typing import List
 import json
 import datetime
 from decimal import *
-from constants.data import *
+from figgy.constants.data import *
 
 class ParameterHistory:
     """

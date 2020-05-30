@@ -1,12 +1,10 @@
-import logging
-import botocore
-import urllib3
-from utils.utils import *
-from botocore.exceptions import ClientError
-from typing import List, Optional, Dict, Union
-from utils.utils import Utils
 from concurrent.futures import ThreadPoolExecutor
+from typing import List, Optional, Dict, Union
 from typing import Tuple
+
+from botocore.exceptions import ClientError
+
+from figgy.utils.utils import Utils
 
 
 class SsmDao:
