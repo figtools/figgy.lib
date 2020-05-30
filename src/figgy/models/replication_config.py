@@ -1,3 +1,5 @@
+from enum import Enum
+
 from figgy.models.run_env import RunEnv
 from figgy.constants.data import *
 import getpass
@@ -5,15 +7,13 @@ from typing import Dict, List
 from figgy.utils.utils import *
 
 
-class ReplicationType:
+class ReplicationType(Enum):
     """
     Represents the various types of replication configs that are valid for storing into our dynamodb
     `service-config-replication` table
     """
-
-    def __init__(self, type: str):
-        assert type in REPLICATION_TYPES, f"Type: {type} must be one of: {REPLICATION_TYPES}"
-        self.type = type
+    APP = REPL_TYPE_APP
+    MERGE = REPL_TYPE_MERGE
 
 
 class ReplicationConfig:
@@ -27,7 +27,7 @@ class ReplicationConfig:
         self.run_env = run_env.env
         self.namespace = namespace
         self.source = source
-        self.type = type.type
+        self.type: str = type.value
         self.user = user
 
         if user is None:
