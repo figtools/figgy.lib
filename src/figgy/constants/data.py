@@ -30,3 +30,6 @@ SSM_SECURE_STRING = "SecureString"
 SSM_STRING = "String"
 SSM_PUT = 'PutParameter'
 SSM_DELETE = 'DeleteParameter'
+
+# Replication
+REPLICATION_TYPES = [REPL_TYPE_APP, REPL_TYPE_MERGE]

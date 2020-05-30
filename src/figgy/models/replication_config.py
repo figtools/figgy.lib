@@ -12,7 +12,7 @@ class ReplicationType:
     """
 
     def __init__(self, type: str):
-        assert type in repl_types, f"Type: {type} must be one of: {repl_types}"
+        assert type in REPLICATION_TYPES, f"Type: {type} must be one of: {REPLICATION_TYPES}"
         self.type = type
 
 
