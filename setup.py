@@ -12,7 +12,6 @@ print(requirements)
 setup(
     name="figgy-lib",
     packages=['figgy'],
-    package_dir={'': 'src'},
     version=VERSION,
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
