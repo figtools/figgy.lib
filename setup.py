@@ -1,5 +1,6 @@
 from setuptools import setup, find_packages
-VERSION = '0.0.4'
+
+VERSION = '0.0.5'
 SHORT_DESCRIPTION = 'Shared code used between various figgy projects'
 LONG_DESCRIPTION = 'This codebase is not needed for general figgy use. ' \
                    'This is maintained and used by the figgy creators.'
@@ -7,6 +8,7 @@ LONG_DESCRIPTION = 'This codebase is not needed for general figgy use. ' \
 with open('./requirements.txt', 'r') as file:
     requirements = file.readlines()
 
+print(requirements)
 setup(
     name="figgy-lib",
     packages=['figgy'],
@@ -18,6 +20,5 @@ setup(
     author_email="jordan@figgy.dev",
     url='https://github.com/mancej/figgy.lib',
     python_requires='>=3.7',
-    install_requires=requirements,
-
+    install_requires=requirements
 )
