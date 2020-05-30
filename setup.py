@@ -11,7 +11,7 @@ with open('./requirements.txt', 'r') as file:
 print(requirements)
 setup(
     name="figgy-lib",
-    packages=['figgy'],
+    packages=find_packages('figgy'),
     package_dir={'': 'src'},
     version=VERSION,
     description=SHORT_DESCRIPTION,
