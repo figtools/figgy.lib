@@ -4,7 +4,7 @@ from enum import Enum
 from dataclasses import dataclass
 from typing import Dict
 
-from constants.data import *
+from figgy.constants.data import *
 
 
 class ConfigState(Enum):
