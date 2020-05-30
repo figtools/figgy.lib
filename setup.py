@@ -10,9 +10,7 @@ with open('./requirements.txt', 'r') as file:
 setup(
     name="figgy-lib",
     packages=['figgy'],
-    entry_points={
-        "console_scripts": ['figgy = figgy:main']
-    },
+    package_dir={'': 'src'},
     version=VERSION,
     description=SHORT_DESCRIPTION,
     long_description=LONG_DESCRIPTION,
@@ -20,5 +18,6 @@ setup(
     author_email="jordan@figgy.dev",
     url='https://github.com/mancej/figgy.lib',
     python_requires='>=3.7',
-    install_requires=requirements
+    install_requires=requirements,
+
 )
