@@ -1,9 +1,10 @@
 import time
 from enum import Enum
 
-from config import *
 from dataclasses import dataclass
 from typing import Dict
+
+from constants.data import *
 
 
 class ConfigState(Enum):

@@ -1,6 +1,6 @@
+from typing import List, Dict
+
 from figgy.models.parameter_history import ParameterHistory
-from figgy.models.restore_config import RestoreConfig
-from typing import List, Set, Dict
 
 
 class PSHistory:

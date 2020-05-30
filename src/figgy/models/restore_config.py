@@ -1,4 +1,4 @@
-from figgy.constants import *
+from figgy.constants.data import *
 from decimal import Decimal
 from typing import List, Dict, TypeVar
 
