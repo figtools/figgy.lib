@@ -13,6 +13,8 @@ import logging
 import datetime
 import time
 
+from figgy.utils.utils import Utils
+
 log = logging.getLogger(__name__)
 
 
@@ -190,12 +192,20 @@ class ConfigDao:
 
         Returns: A list of matching replication confgs.
         """
+        start_time = time.time()
+        filter_exp = Attr(REPL_SOURCE_ATTR_NAME).eq(source)
+        response = self._config_repl_table.scan(FilterExpression=filter_exp)
+        configs: List[ReplicationConfig] = self._map_results(response)
 
-        filter_exp = Attr(REPL_SOURCE_ATTR_NAME).eq(source) & Key(
-            REPL_RUN_ENV_KEY_NAME
-        )
-        result = self._config_repl_table.scan(FilterExpression=filter_exp)
-        return self._map_results(result)
+        while 'LastEvaluatedKey' in response:
+            response = self._config_repl_table.scan(FilterExpression=filter_exp,
+                                                    ExclusiveStartKey=response['LastEvaluatedKey'])
+            configs = configs + self._map_results(response)
+
+        log.info(f"Returning {len(configs)} parameter names from dynamo cache after "
+                 f"{time.time() - start_time} seconds.")
+
+        return configs
 
     def get_config_repl(self, destination: str) -> ReplicationConfig:
         """
@@ -259,7 +269,7 @@ class ConfigDao:
             for item in result["Items"]:
                 config = ReplicationConfig(
                     item[REPL_DEST_KEY_NAME],
-                    RunEnv(item[REPL_RUN_ENV_KEY_NAME]),
+                    RunEnv(item.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
                     item[REPL_NAMESPACE_ATTR_NAME],
                     item[REPL_SOURCE_ATTR_NAME],
                     ReplicationType(item[REPL_TYPE_ATTR_NAME]),

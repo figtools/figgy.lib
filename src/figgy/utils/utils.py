@@ -74,3 +74,8 @@ class Utils:
     def validate(boolean: bool, error_msg: str):
         if not boolean:
             raise ValueError(error_msg)
+
+
+    @staticmethod
+    def millis_since_epoch():
+        return int(time.time() * 1000)

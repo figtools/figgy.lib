@@ -4,6 +4,7 @@ from typing import Tuple
 
 from botocore.exceptions import ClientError
 
+from figgy.constants.data import SSM_SECURE_STRING
 from figgy.utils.utils import Utils
 
 
@@ -292,7 +293,11 @@ class SsmDao:
             type: SecureString or String
             key_id: KMS Key Id to use for encryption if SecureString
         """
-        # print(f"Inputting parameter {key} with value: {value} and DESC {desc} and type {type}")
+
+        if type == SSM_SECURE_STRING and not key_id:
+            raise ValueError(f"There's a bug! Somehow Figgy is attempting to set the parameter: {key} with a type of "
+                             f"{SSM_SECURE_STRING} but the KMS key id is missing! If you experience this please "
+                             f"report this to figgy maintainers immediately!")
         if key_id:
             self._ssm.put_parameter(
                 Name=key,
