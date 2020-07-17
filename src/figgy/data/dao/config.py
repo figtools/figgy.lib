@@ -237,7 +237,6 @@ class ConfigDao:
         for key in config.props:
             if (
                     key != REPL_DEST_KEY_NAME
-                    and key != REPL_RUN_ENV_KEY_NAME
                     and not isinstance(config.props[key], float)
             ):
                 item[key] = config.props[key]
