@@ -34,6 +34,7 @@ class ReplicationConfig:
             self.user = getpass.getuser()
 
         self.props = {
+            REPL_RUN_ENV_KEY_NAME: self.run_env,
             REPL_SOURCE_ATTR_NAME: self.source,
             REPL_NAMESPACE_ATTR_NAME: self.namespace,
             REPL_TYPE_ATTR_NAME: self.type,
