@@ -30,7 +30,7 @@ class ReplicationConfig:
         self.run_env = run_env.env
         self.namespace = namespace
         self.source = source
-        self.type: str = type
+        self.type: str = type.type
         self.user = user
 
         if user is None:
