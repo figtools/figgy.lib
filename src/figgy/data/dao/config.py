@@ -157,10 +157,7 @@ class ConfigDao:
             List of ReplicationConfigs that match the namespace.
 
         """
-        filter_exp = Attr(REPL_NAMESPACE_ATTR_NAME).eq(namespace) & Key(
-            REPL_RUN_ENV_KEY_NAME
-        )
-
+        filter_exp = Attr(REPL_NAMESPACE_ATTR_NAME).eq(namespace)
         if start_key:
             result = self._config_repl_table.scan(FilterExpression=filter_exp, ExclusiveStartKey=start_key)
         else:
@@ -173,7 +170,7 @@ class ConfigDao:
             for item in items:
                 repl_config = ReplicationConfig(
                     item[REPL_DEST_KEY_NAME],
-                    RunEnv(item[REPL_RUN_ENV_KEY_NAME]),
+                    RunEnv(item.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
                     item[REPL_NAMESPACE_ATTR_NAME],
                     item[REPL_SOURCE_ATTR_NAME],
                     ReplicationType(item[REPL_TYPE_ATTR_NAME]),
@@ -224,7 +221,7 @@ class ConfigDao:
 
             config = ReplicationConfig(
                 items[REPL_DEST_KEY_NAME],
-                RunEnv(items[REPL_RUN_ENV_KEY_NAME]),
+                RunEnv(items.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
                 items[REPL_NAMESPACE_ATTR_NAME],
                 items[REPL_SOURCE_ATTR_NAME],
                 ReplicationType(items[REPL_TYPE_ATTR_NAME]),
