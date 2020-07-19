@@ -54,6 +54,9 @@ class ParameterHistory:
     def __str__(self):
         return f"{self.__dict__}"
 
+    def __repr__(self):
+        return f"{self.__dict__}"
+
     def add(self, config: RestoreConfig):
         if not self.name:
             self.name = config.ps_name

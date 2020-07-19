@@ -90,7 +90,7 @@ class ConfigDao:
             result = self._audit_table.scan(FilterExpression=filter_exp, ExclusiveStartKey=result['LastEvaluatedKey'])
             items = items + result.get('Items', [])
 
-        return RestoreConfig.convert_to_model(result.get('Items', []))
+        return RestoreConfig.convert_to_model(items)
 
     def get_parameter_history_before_time(self, ps_time: datetime.datetime, ps_prefix: str) -> PSHistory:
         """
