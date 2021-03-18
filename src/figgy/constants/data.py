@@ -30,3 +30,4 @@ SSM_SECURE_STRING = "SecureString"
 SSM_STRING = "String"
 SSM_PUT = 'PutParameter'
 SSM_DELETE = 'DeleteParameter'
+SSM_INTELLIGENT_TIERING = 'Intelligent-Tiering'

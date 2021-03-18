@@ -1,8 +1,8 @@
 import time
 from enum import Enum
-
-from dataclasses import dataclass
 from typing import Dict
+
+from pydantic import dataclasses
 
 from figgy.constants.data import *
 
@@ -12,10 +12,10 @@ class ConfigState(Enum):
     ACTIVE = 1
 
 
-@dataclass(eq=True, frozen=True)
+@dataclasses.dataclass(frozen=True)
 class ConfigItem:
     name: str
-    state: str
+    state: ConfigState
     last_updated: int
 
     @staticmethod
@@ -26,3 +26,5 @@ class ConfigItem:
 
         return ConfigItem(name=name, last_updated=last_updated, state=ConfigState[state])
 
+    def __lt__(self, o: "ConfigItem") -> bool:
+        return self.last_updated < o.last_updated

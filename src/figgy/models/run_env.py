@@ -1,9 +1,11 @@
+from typing import Optional
 
-class RunEnv:
+from pydantic import BaseModel
 
-    def __init__(self, env: str, account_id: str = None):
-        self.env = env
-        self.account_id = account_id
+
+class RunEnv(BaseModel):
+    env: str
+    account_id: Optional[str]
 
     def __str__(self):
         return self.env

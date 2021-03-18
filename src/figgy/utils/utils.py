@@ -1,7 +1,7 @@
 import logging
 import re
 import time
-from typing import List
+from typing import List, Any
 
 import botocore
 import urllib3
@@ -75,7 +75,11 @@ class Utils:
         if not boolean:
             raise ValueError(error_msg)
 
-
     @staticmethod
     def millis_since_epoch():
         return int(time.time() * 1000)
+
+    @staticmethod
+    def validate_set(obj: Any, obj_name: str):
+        if not obj:
+            raise ValueError(f'{obj_name} was not set and expected.')

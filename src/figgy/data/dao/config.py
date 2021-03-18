@@ -136,8 +136,6 @@ class ConfigDao:
 
         return sorted(RestoreConfig.convert_to_model(items), key=lambda x: x.ps_time, reverse=True)
 
-
-
     def get_all_configs(self, namespace: str, start_key: str = None) -> List[ReplicationConfig]:
         """
         Retrieves all replication configs from the database for a particular namespace
@@ -199,7 +197,7 @@ class ConfigDao:
 
             config = ReplicationConfig(
                 items[REPL_DEST_KEY_NAME],
-                RunEnv(items.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
+                RunEnv(env=items.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
                 items[REPL_NAMESPACE_ATTR_NAME],
                 items[REPL_SOURCE_ATTR_NAME],
                 ReplicationType(items[REPL_TYPE_ATTR_NAME]),
@@ -337,7 +335,7 @@ class ConfigDao:
     def __cfg_from_boto_item(self, boto_item: Dict) -> ReplicationConfig:
         return ReplicationConfig(
             boto_item[REPL_DEST_KEY_NAME],
-            RunEnv(boto_item.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
+            RunEnv(env=boto_item.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
             boto_item[REPL_NAMESPACE_ATTR_NAME],
             boto_item[REPL_SOURCE_ATTR_NAME],
             ReplicationType(boto_item[REPL_TYPE_ATTR_NAME]),

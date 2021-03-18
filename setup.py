@@ -1,6 +1,6 @@
 from setuptools import setup, find_packages
 
-VERSION = '0.0.12'
+VERSION = '0.0.13'
 SHORT_DESCRIPTION = 'Shared code used between various figgy projects'
 LONG_DESCRIPTION = 'This codebase is not needed for general figgy use. ' \
                    'This is maintained and used by the figgy creators.'

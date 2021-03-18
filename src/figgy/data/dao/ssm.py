@@ -4,7 +4,7 @@ from typing import Tuple
 
 from botocore.exceptions import ClientError
 
-from figgy.constants.data import SSM_SECURE_STRING
+from figgy.constants.data import SSM_SECURE_STRING, SSM_INTELLIGENT_TIERING, SSM_STRING
 from figgy.utils.utils import Utils
 
 
@@ -69,33 +69,33 @@ class SsmDao:
 
         return total_params
 
-    @Utils.retry
-    def get_parameter_details(self, name: str) -> Dict:
-        """
-        Get the parameter details for a single parameter. This is extremely inefficient, due to how the AWS API is
-        designed, you should probably avoid this.
-        :param name: The name of the parameter
-        :return: Dict -> Parameter details as returned from AWS API or an empty Dict {} if nothing is found.
-        """
-        filters = {
-            'Key': 'Name',
-            'Values': [name]
-        }
-        next_token = True
-        while next_token:
-            if isinstance(next_token, str):
-                result = self._ssm.describe_parameters(Filters=[filters], NextToken=next_token,
-                                                       MaxResults=self.max_results)
-            else:
-                result = self._ssm.describe_parameters(Filters=[filters], MaxResults=self.max_results)
-
-            params = result.get('Parameters')
-            if params:
-                return params.pop()
-            else:
-                next_token = result.get('NextToken')
-
-        return {}
+    # @Utils.retry
+    # def get_parameter_details(self, name: str) -> Dict:
+    #     """
+    #     Get the parameter details for a single parameter. This is extremely inefficient, due to how the AWS API is
+    #     designed, you should probably avoid this.
+    #     :param name: The name of the parameter
+    #     :return: Dict -> Parameter details as returned from AWS API or an empty Dict {} if nothing is found.
+    #     """
+    #     filters = {
+    #         'Key': 'Name',
+    #         'Values': [name]
+    #     }
+    #     next_token = True
+    #     while next_token:
+    #         if isinstance(next_token, str):
+    #             result = self._ssm.describe_parameters(Filters=[filters], NextToken=next_token,
+    #                                                    MaxResults=self.max_results)
+    #         else:
+    #             result = self._ssm.describe_parameters(Filters=[filters], MaxResults=self.max_results)
+    #
+    #         params = result.get('Parameters')
+    #         if params:
+    #             return params.pop()
+    #         else:
+    #             next_token = result.get('NextToken')
+    #
+    #     return {}
 
     @Utils.retry
     def get_parameter_with_description(self, name: str) -> Tuple[Optional[str], Optional[str]]:
@@ -109,36 +109,9 @@ class SsmDao:
         :param name: The name of the parameter - e.g. /app/foo/bar
         :return: Tuple[value, description] - Value & Description found. None returned if no parameter exists.
         """
-        try:
-            next_token, result = True, {}
+        param, latest_version = self.get_parameter_details(name)
+        return param.get('Value'), param.get('Description')
 
-            while next_token:
-                if isinstance(next_token, str):
-                    result = self._ssm.get_parameter_history(
-                        Name=name,
-                        WithDecryption=True,
-                        NextToken=next_token
-                    )
-                else:
-                    result = self._ssm.get_parameter_history(
-                        Name=name,
-                        WithDecryption=True
-                    )
-
-                next_token = result.get('NextToken')
-
-            history = result.get('Parameters', [])
-            if history:
-                current_val = history[-1]
-                return current_val.get('Value'), current_val.get('Description')
-            else:
-                return None, None
-
-        except ClientError as e:
-            if "ParameterNotFound" == e.response['Error']['Code']:
-                return None, None
-            else:
-                raise
 
     @Utils.retry
     def get_description(self, name: str) -> Union[str, None]:
@@ -224,6 +197,7 @@ class SsmDao:
             and response['ResponseMetadata']['HTTPStatusCode'] == 200,
             f"Error deleting key: [{key}] from PS. Please try again.")
 
+
     @Utils.retry
     def get_parameter(self, key) -> Optional[str]:
         """
@@ -283,7 +257,7 @@ class SsmDao:
                 raise
 
     @Utils.retry
-    def set_parameter(self, key, value, desc, type, key_id=None) -> None:
+    def set_parameter(self, key, value, desc, type=None, key_id=None) -> None:
         """
         Sets a parameter in PS.
         Args:
@@ -293,11 +267,9 @@ class SsmDao:
             type: SecureString or String
             key_id: KMS Key Id to use for encryption if SecureString
         """
+        if not type:
+            type = SSM_SECURE_STRING if key_id else SSM_STRING
 
-        if type == SSM_SECURE_STRING and not key_id:
-            raise ValueError(f"There's a bug! Somehow Figgy is attempting to set the parameter: {key} with a type of "
-                             f"{SSM_SECURE_STRING} but the KMS key id is missing! If you experience this please "
-                             f"report this to figgy maintainers immediately!")
         if key_id:
             self._ssm.put_parameter(
                 Name=key,
@@ -305,7 +277,8 @@ class SsmDao:
                 Value=value,
                 Overwrite=True,
                 Type=type,
-                KeyId=key_id
+                KeyId=key_id,
+                Tier=SSM_INTELLIGENT_TIERING
             )
         else:
             self._ssm.put_parameter(
@@ -313,5 +286,50 @@ class SsmDao:
                 Description=desc,
                 Value=value,
                 Overwrite=True,
-                Type=type
+                Type=type,
+                Tier=SSM_INTELLIGENT_TIERING
             )
+
+    @Utils.retry
+    def get_parameter_details(self, name: str, target_version: int = 0) -> Tuple[Dict, bool]:
+        """
+        Returns a hydrated parameter dictionary. See Dict format from: boto3.ssm.get_parameter_history
+        """
+
+        try:
+            next_token, result = True, {}
+
+            while next_token:
+                if isinstance(next_token, str):
+                    result = self._ssm.get_parameter_history(
+                        Name=name,
+                        WithDecryption=True,
+                        NextToken=next_token
+                    )
+                else:
+                    result = self._ssm.get_parameter_history(
+                        Name=name,
+                        WithDecryption=True
+                    )
+
+                next_token = result.get('NextToken')
+
+            history = result.get('Parameters', [])
+            if history:
+                if target_version:
+                    matching_versions = list(filter(lambda x: x.get('Version') == target_version, history))
+                    match = matching_versions[0] if matching_versions else {}
+                    # Last item in 'history' is always latest version.
+                    is_latest_version = match.get('Version', -1) == history[-1].get('Version')
+                    return match, is_latest_version
+                else:
+                    current_val = history[-1], True
+                    return current_val
+            else:
+                return {}, False
+
+        except ClientError as e:
+            if "ParameterNotFound" == e.response['Error']['Code']:
+                return {}, False
+            else:
+                raise
