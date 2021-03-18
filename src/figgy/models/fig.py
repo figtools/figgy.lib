@@ -26,3 +26,6 @@ class Fig(BaseModel):
             value = None
 
         return value
+
+    def is_missing(self) -> bool:
+        return self.name is None or self.value is None
