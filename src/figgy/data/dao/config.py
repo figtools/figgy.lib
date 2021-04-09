@@ -8,7 +8,7 @@ from figgy.models.run_env import RunEnv
 from figgy.models.audit_log import AuditLog
 from figgy.models.parameter_history import ParameterHistory
 from figgy.models.parameter_store_history import PSHistory
-from typing import Callable, Dict, List, Any, Set
+from typing import Callable, Dict, List, Any, Set, Optional
 import logging
 import datetime
 import time
@@ -150,11 +150,11 @@ class ConfigDao:
         filter_exp = Attr(REPL_NAMESPACE_ATTR_NAME).eq(namespace)
 
         result = self._config_repl_table.scan(FilterExpression=filter_exp)
-        configs = [self.__cfg_from_boto_item(item) for item in result.get('Items', [])]
+        configs = [ReplicationConfig(**item) for item in result.get('Items', [])]
 
         while 'LastEvaluatedKey' in result:
             result = self._config_repl_table.scan(FilterExpression=filter_exp, ExclusiveStartKey=start_key)
-            configs = configs + [self.__cfg_from_boto_item(item) for item in result.get('Items', [])]
+            configs = configs + [ReplicationConfig(**item) for item in result.get('Items', [])]
 
         return configs
 
@@ -180,7 +180,7 @@ class ConfigDao:
 
         return configs
 
-    def get_config_repl(self, destination: str) -> ReplicationConfig:
+    def get_config_repl(self, destination: str) -> Optional[ReplicationConfig]:
         """
         Lookup a replication config by destination
         Args:
@@ -193,17 +193,9 @@ class ConfigDao:
         result = self._config_repl_table.query(KeyConditionExpression=filter_exp)
 
         if "Items" in result and len(result["Items"]) > 0:
-            items = result["Items"][0]
-
-            config = ReplicationConfig(
-                items[REPL_DEST_KEY_NAME],
-                RunEnv(env=items.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
-                items[REPL_NAMESPACE_ATTR_NAME],
-                items[REPL_SOURCE_ATTR_NAME],
-                ReplicationType(items[REPL_TYPE_ATTR_NAME]),
-                user=items[REPL_USER_ATTR_NAME],
-            )
-            return config
+            item = result["Items"][0]
+            log.info(f'Got item: {item}')
+            return ReplicationConfig(**item)
         else:
             return None
 
@@ -228,25 +220,69 @@ class ConfigDao:
 
         self._config_repl_table.put_item(Item=item)
 
-    def get_audit_logs(self, ps_name: str) -> List[AuditLog]:
+    def get_audit_logs(self, ps_name: str, before: Optional[int] = None, after: Optional[int] = None) -> List[AuditLog]:
         """
         Args:
             ps_name: /path/to/parameter to query audit logs for.
 
         Returns: List[AuditLog]. Logs that match for the /ps/name in ParameterStore.
         """
-        filter_exp = Key(AUDIT_PARAMETER_KEY_NAME).eq(ps_name)
-        result = self._audit_table.query(KeyConditionExpression=filter_exp)
+        key_expr = Key(AUDIT_PARAMETER_KEY_NAME).eq(ps_name)
+
+        if before and not after:
+            key_expr = key_expr & Key(AUDIT_TIME_KEY_NAME).lt(before)
+        elif before and after:
+            key_expr = key_expr & Key(AUDIT_TIME_KEY_NAME).between(before, after)
+        elif after and not before:
+            key_expr = key_expr & Key(AUDIT_TIME_KEY_NAME).gt(after)
+
+        result = self._audit_table.query(KeyConditionExpression=key_expr)
         items = result.get('Items', None)
 
         audit_logs: List[AuditLog] = []
         if items is not None:
             for item in items:
-                log = AuditLog(item[AUDIT_PARAMETER_KEY_NAME], item[AUDIT_TIME_KEY_NAME],
-                               item[AUDIT_ACTION_ATTR_NAME], item[AUDIT_USER_ATTR_NAME])
+                log = AuditLog(**item)
                 audit_logs.append(log)
 
         return audit_logs
+
+    def get_unrotated_configs(self, not_updated_since: int, filter: str = None, secrets_only: bool = True) -> List[AuditLog]:
+        log.info(f'Looking for stale configs not updated since: {not_updated_since}')
+        filter_exp = Attr(AUDIT_TIME_KEY_NAME).lt(int(not_updated_since)) & Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_PUT)
+
+        filter_exp = filter_exp if not secrets_only else filter_exp & Attr(AUDIT_PARAMETER_ATTR_TYPE).eq(SSM_SECURE_STRING)
+        filter_exp = filter_exp if not filter else filter_exp & Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter)
+
+        response = self._audit_table.scan(
+            FilterExpression=filter_exp
+        )
+
+        items = response.get('Items', [])
+        log.info(f'First items: {items}')
+
+        while 'LastEvaluatedKey' in response:
+            response = self._audit_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            items = items + response.get('Items', [])
+
+        logs: Dict[str, List[AuditLog]] = {}
+
+        # Add to dict so we can sort to find latest of each type of config
+        for item in items:
+            name = item.get(AUDIT_PARAMETER_KEY_NAME)
+            new_item = AuditLog(**item)
+            logs[name] = logs.get(name) + [new_item] if logs.get(name) else [new_item]
+
+        # Sort, latest log should be at position 0
+        for key, value in logs.items():
+            logs[key] = sorted(value)
+
+        # return latest items
+        latest = [logs[key][0] for key, value in logs.items()]
+
+        log.info(f"Found latest stale configs: {latest}")
+
+        return latest
 
     def get_all_config_names(self, prefix: str = None, one_level: bool = False, start_key: str = None) -> Set[str]:
         """
@@ -331,15 +367,6 @@ class ConfigDao:
 
         self._cache_table.put_item(Item=item)
 
-    ## Mapping and utilities Todo: Should be moved / refactored
-    def __cfg_from_boto_item(self, boto_item: Dict) -> ReplicationConfig:
-        return ReplicationConfig(
-            boto_item[REPL_DEST_KEY_NAME],
-            RunEnv(env=boto_item.get(REPL_RUN_ENV_KEY_NAME, "unknown")),
-            boto_item[REPL_NAMESPACE_ATTR_NAME],
-            boto_item[REPL_SOURCE_ATTR_NAME],
-            ReplicationType(boto_item[REPL_TYPE_ATTR_NAME]),
-        )
 
     def __map_results(self, result: dict) -> List[ReplicationConfig]:
         """
@@ -353,6 +380,6 @@ class ConfigDao:
         repl_cfgs = []
         if "Items" in result and len(result["Items"]) > 0:
             for item in result["Items"]:
-                repl_cfgs.append(self.__cfg_from_boto_item(item))
+                repl_cfgs.append(ReplicationConfig(**item))
 
         return repl_cfgs

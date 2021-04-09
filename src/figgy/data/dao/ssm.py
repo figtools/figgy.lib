@@ -1,3 +1,4 @@
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Dict, Union
 from typing import Tuple
@@ -6,6 +7,8 @@ from botocore.exceptions import ClientError
 
 from figgy.constants.data import SSM_SECURE_STRING, SSM_INTELLIGENT_TIERING, SSM_STRING
 from figgy.utils.utils import Utils
+
+log = logging.getLogger(__name__)
 
 
 class SsmDao:
@@ -61,7 +64,7 @@ class SsmDao:
             params = self._ssm.describe_parameters(ParameterFilters=filters, MaxResults=self.max_results)
 
             Utils.validate(params and 'Parameters' in params,
-                                 f"Failed to lookup parameters with prefix: {prefixes}")
+                           f"Failed to lookup parameters with prefix: {prefixes}")
         total_params = total_params + params['Parameters']
 
         if params and 'NextToken' in params:
@@ -111,7 +114,6 @@ class SsmDao:
         """
         param, latest_version = self.get_parameter_details(name)
         return param.get('Value'), param.get('Description')
-
 
     @Utils.retry
     def get_description(self, name: str) -> Union[str, None]:
@@ -197,7 +199,6 @@ class SsmDao:
             and response['ResponseMetadata']['HTTPStatusCode'] == 200,
             f"Error deleting key: [{key}] from PS. Please try again.")
 
-
     @Utils.retry
     def get_parameter(self, key) -> Optional[str]:
         """
@@ -267,6 +268,8 @@ class SsmDao:
             type: SecureString or String
             key_id: KMS Key Id to use for encryption if SecureString
         """
+        desc = desc if desc else ''
+
         if not type:
             type = SSM_SECURE_STRING if key_id else SSM_STRING
 
@@ -295,7 +298,7 @@ class SsmDao:
         """
         Returns a hydrated parameter dictionary. See Dict format from: boto3.ssm.get_parameter_history
         """
-
+        log.info(f"Getting parameter details for {name} and verison {target_version}")
         try:
             next_token, result = True, {}
 
