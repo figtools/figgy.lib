@@ -251,8 +251,11 @@ class ConfigDao:
         log.info(f'Looking for stale configs not updated since: {not_updated_since}')
         filter_exp = Attr(AUDIT_TIME_KEY_NAME).lt(int(not_updated_since)) & Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_PUT)
 
-        filter_exp = filter_exp if not secrets_only else filter_exp & Attr(AUDIT_PARAMETER_ATTR_TYPE).eq(SSM_SECURE_STRING)
-        filter_exp = filter_exp if not filter else filter_exp & Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter)
+        if secrets_only:
+            filter_exp = filter_exp & Attr(AUDIT_PARAMETER_ATTR_TYPE).eq(SSM_SECURE_STRING)
+
+        if filter:
+            filter_exp = filter_exp & (Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter) | Attr(AUDIT_PARAMETER_ATTR_USER).contains(filter))
 
         response = self._audit_table.scan(
             FilterExpression=filter_exp
