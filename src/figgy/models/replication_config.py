@@ -7,6 +7,8 @@ from figgy.models.run_env import RunEnv
 from figgy.constants.data import *
 import getpass
 from typing import Dict, List, Optional, Union
+
+from figgy.models.serializable import Serializable
 from figgy.utils.utils import *
 
 
@@ -18,8 +20,11 @@ class ReplicationType(Enum):
     APP = REPL_TYPE_APP
     MERGE = REPL_TYPE_MERGE
 
+    def __str__(self):
+        return self.value
 
-class ReplicationConfig(BaseModel):
+
+class ReplicationConfig(Serializable):
     """
     This model is used for storing / retrieving data from the `service-config-replication` table.
     """
@@ -27,12 +32,15 @@ class ReplicationConfig(BaseModel):
     run_env: RunEnv = Field(None, alias="env_alias")
     namespace: str
     source: Union[str, List[str]]
-    type: str
+    type: ReplicationType
     user: Optional[str]
-    props: Dict = None   # Default to None is required or the init_props validator doesn't run.
 
-    @validator('run_env', pre=True)
-    def init_run_env(cls, value):
+    @validator('run_env', pre=True, always=True)
+    def init_run_env(cls, value, values):
+        # this enables us to load via name run_env and env_alias.
+        if values.get('run_env'):
+            return RunEnv(env=values.get('run_env'))
+
         if not value:
             value = "unknown"
 
@@ -40,27 +48,12 @@ class ReplicationConfig(BaseModel):
 
     @validator('type', pre=True)
     def init_type(cls, value):
-        return value
+        return ReplicationType(value)
 
-    @validator('user', pre=True)
+    @validator('user', pre=True, always=True)
     def init_user(cls, value):
         if not value:
             value = getpass.getuser()
-
-        return value
-
-    @validator('props', pre=True, always=True)
-    def init_props(cls, value, values):
-        log.info(f'Starting values: {values}')
-        value = {
-            REPL_RUN_ENV_KEY_NAME: values['run_env'],
-            REPL_SOURCE_ATTR_NAME: values['source'],
-            REPL_NAMESPACE_ATTR_NAME: values['namespace'],
-            REPL_TYPE_ATTR_NAME: values['type'],
-            REPL_USER_ATTR_NAME: values['user']
-        }
-
-        log.info(f'Setting props: {value}')
 
         return value
 

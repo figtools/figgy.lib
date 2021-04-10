@@ -1,6 +1,6 @@
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic.decorator import BaseModel
 
 
 class RunEnv(BaseModel):
