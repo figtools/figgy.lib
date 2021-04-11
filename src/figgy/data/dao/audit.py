@@ -173,6 +173,7 @@ class AuditDao:
 
         while 'LastEvaluatedKey' in response:
             response = self._audit_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
+            log.info(f"Getting more items, got response: {response}")
             items = items + response.get('Items', [])
 
         logs: Dict[str, List[AuditLog]] = {}
