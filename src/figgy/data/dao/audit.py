@@ -1,5 +1,9 @@
 import datetime
 import logging
+from multiprocessing.pool import ThreadPool
+
+from decimal import Decimal
+from threading import Thread
 
 from typing import Optional, List, Dict
 
@@ -142,11 +146,16 @@ class AuditDao:
         return audit_logs
 
     def find_logs(self, filter: str = None, parameter_type: str = None,
-                  before: int = None, after: int = None, action: str = SSM_PUT) -> List[AuditLog]:
+                  before: int = None, after: int = None, action: str = None,
+                  segment: int = 0, total_segments: int = 1) -> List[AuditLog]:
 
         log.info(f'Inputs: Filter: {filter}, param_type: {parameter_type}, before: {before} after: {after}')
+        log.info(f'Executing with segment: {segment} and total_segments: {total_segments}')
 
-        filter_exp = Attr(AUDIT_ACTION_ATTR_NAME).eq(action)
+        if action:
+            filter_exp = Attr(AUDIT_ACTION_ATTR_NAME).eq(action)
+        else:
+            filter_exp = (Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_PUT) | Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_DELETE))
 
         if parameter_type:
             log.info(f"Adding type: {parameter_type}")
@@ -154,7 +163,8 @@ class AuditDao:
 
         if filter:
             log.info(f"Adding filter: {filter}")
-            filter_exp = filter_exp & (Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter) | Attr(AUDIT_PARAMETER_ATTR_USER).contains(filter))
+            filter_exp = filter_exp & (Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter) |
+                                       Attr(AUDIT_PARAMETER_ATTR_USER).contains(filter))
 
         if before:
             log.info(f"Adding before: {before}")
@@ -165,15 +175,19 @@ class AuditDao:
             filter_exp = filter_exp & Attr(AUDIT_TIME_KEY_NAME).gt(int(after))
 
         response = self._audit_table.scan(
-            FilterExpression=filter_exp
+            FilterExpression=filter_exp,
+            Segment=segment,
+            TotalSegments=total_segments
         )
 
         items = response.get('Items', [])
-        log.info(f'First items: {items}')
 
         while 'LastEvaluatedKey' in response:
-            response = self._audit_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'])
-            log.info(f"Getting more items, got response: {response}")
+            response = self._audit_table.scan(ExclusiveStartKey=response['LastEvaluatedKey'],
+                                              FilterExpression=filter_exp,
+                                              Segment=segment,
+                                              TotalSegments=total_segments)
+
             items = items + response.get('Items', [])
 
         logs: Dict[str, List[AuditLog]] = {}
@@ -191,6 +205,19 @@ class AuditDao:
         # return latest items
         latest = [logs[key][0] for key, value in logs.items()]
 
-        log.info(f"Found latest stale configs: {latest}")
-
         return latest
+
+    def find_logs_parallel(self, threads: int, filter: str = None, parameter_type: str = None,
+                           before: int = None, after: int = None, action: str = None) -> List[AuditLog]:
+        futures, all_logs = [], []
+        pool = ThreadPool(processes=threads)
+
+        for i in range(0, threads):
+            thread = pool.apply_async(self.find_logs, args=(filter, parameter_type, before,
+                                                            after, action, i, threads))
+            futures.append(thread)
+
+        for future in futures:
+            all_logs = all_logs + future.get()
+
+        return all_logs
