@@ -159,6 +159,16 @@ class AuditDao:
         else:
             return None
 
+    def get_deleted_value(self, audit_log: AuditLog) -> Optional[str]:
+        logs: List[AuditLog] = self.get_audit_logs(audit_log.parameter_name, before=audit_log.time)
+        logs = [x for x in logs if x.action == SSM_PUT]
+        logs = sorted(logs)
+
+        if logs:
+            return logs[-1].value
+        else:
+            return None
+
     def find_logs(self, filter: str = None, parameter_type: str = None,
                   before: int = None, after: int = None, action: str = None,
                   segment: int = 0, total_segments: int = 1) -> List[AuditLog]:

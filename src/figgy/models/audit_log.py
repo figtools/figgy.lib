@@ -26,3 +26,6 @@ class AuditLog(BaseModel):
 
     def __gt__(self, other):
         return self.time > other.time
+
+    def __lt__(self, other):
+        return self.time < other.time
