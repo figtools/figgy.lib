@@ -12,6 +12,7 @@ class AuditLog(BaseModel):
     time: int
     action: str
     user: str
+    value: Optional[str]
     type: Optional[str]
     description: Optional[str]
     version: Optional[int]

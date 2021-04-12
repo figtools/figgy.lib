@@ -135,15 +135,29 @@ class AuditDao:
             key_expr = key_expr & Key(AUDIT_TIME_KEY_NAME).gt(after)
 
         result = self._audit_table.query(KeyConditionExpression=key_expr)
-        items = result.get('Items', None)
+        items = result.get('Items', [])
 
         audit_logs: List[AuditLog] = []
-        if items is not None:
-            for item in items:
-                log = AuditLog(**item)
-                audit_logs.append(log)
+        for item in items:
+            log = AuditLog(**item)
+            audit_logs.append(log)
 
         return audit_logs
+
+    def get_log(self, ps_name: str, time: int) -> Optional[AuditLog]:
+        """
+        Returns the matching audit log for the Parameter name & time
+        """
+
+        key_expr = Key(AUDIT_PARAMETER_KEY_NAME).eq(ps_name) & Key(AUDIT_TIME_KEY_NAME).eq(time)
+
+        result = self._audit_table.query(KeyConditionExpression=key_expr)
+        items = result.get('Items', [])
+
+        if items:
+            return AuditLog(**items[0])
+        else:
+            return None
 
     def find_logs(self, filter: str = None, parameter_type: str = None,
                   before: int = None, after: int = None, action: str = None,
