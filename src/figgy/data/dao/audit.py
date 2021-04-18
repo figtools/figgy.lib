@@ -234,14 +234,17 @@ class AuditDao:
     def find_logs_parallel(self, threads: int, filter: str = None, parameter_type: str = None,
                            before: int = None, after: int = None, action: str = None) -> List[AuditLog]:
         futures, all_logs = [], []
+
         pool = ThreadPool(processes=threads)
+        try:
+            for i in range(0, threads):
+                thread = pool.apply_async(self.find_logs, args=(filter, parameter_type, before,
+                                                                after, action, i, threads))
+                futures.append(thread)
 
-        for i in range(0, threads):
-            thread = pool.apply_async(self.find_logs, args=(filter, parameter_type, before,
-                                                            after, action, i, threads))
-            futures.append(thread)
-
-        for future in futures:
-            all_logs = all_logs + future.get()
+            for future in futures:
+                all_logs = all_logs + future.get()
+        finally:
+            pool.close()
 
         return all_logs

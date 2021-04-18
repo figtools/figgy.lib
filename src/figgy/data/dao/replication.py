@@ -75,7 +75,6 @@ class ReplicationDao:
 
         if "Items" in result and len(result["Items"]) > 0:
             item = result["Items"][0]
-            log.info(f'Got item: {item}')
             return ReplicationConfig(**item)
         else:
             return None
