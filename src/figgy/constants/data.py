@@ -22,6 +22,7 @@ AUDIT_PARAMETER_ATTR_DESCRIPTION = "description"
 AUDIT_PARAMETER_ATTR_VALUE = "value"
 AUDIT_PARAMETER_ATTR_KEY_ID = "key_id"
 AUDIT_PARAMETER_ATTR_USER = "user"
+AUDIT_IDX_USER_ID = "AuditByUserIdx"
 
 # Cache Table
 CACHE_TABLE_NAME = 'figgy-config-cache'
@@ -39,9 +40,18 @@ CONFIG_USAGE_EMPTY_IDX_VALUE = "empty"
 CONFIG_USAGE_LAST_UPDATED_ONLY_IDX = "LastUpdateOnlyIdx"
 CONFIG_USAGE_USER_LAST_UPDATED_IDX = "UserLastUpdatedIndex"
 
+# User cache table
+USER_CACHE_TABLE_NAME = "figgy-user-cache"
+USER_CACHE_PARAM_NAME_KEY = "user_name"
+USER_CACHE_STATE_ATTR_NAME = "state"
+USER_CACHE_LAST_UPDATED_KEY = "last_updated"
+USER_CACHE_STATE_DELETED = 'DELETED'
+USER_CACHE_STATE_ACTIVE = 'ACTIVE'
+
 # SSM Constants
 SSM_SECURE_STRING = "SecureString"
 SSM_STRING = "String"
 SSM_PUT = 'PutParameter'
 SSM_DELETE = 'DeleteParameter'
+SSM_GET = 'GetParameter'
 SSM_INTELLIGENT_TIERING = 'Intelligent-Tiering'

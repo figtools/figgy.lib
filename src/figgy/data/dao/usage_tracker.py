@@ -1,6 +1,6 @@
 import logging
 import time
-from typing import List, Dict
+from typing import List, Dict, Generator, Iterable
 
 from boto3.dynamodb.conditions import Attr, Key
 
@@ -26,8 +26,49 @@ class UsageTrackerDao:
 
         self._table.put_item(Item=item)
 
+    def find_logs_by_user(self, user: str, filter: str = None) -> Iterable[UsageLog]:
+        log.info(f'Finding usage logs for user: {user}')
+        query_expr = Key(CONFIG_USAGE_USER_KEY).eq(user) & Key(CONFIG_USAGE_LAST_UPDATED_KEY).gt(0)
+        filter_expr = None
+
+        if filter:
+            filter_expr = Attr(CONFIG_USAGE_PARAMETER_KEY).contains(filter)
+
+        if filter_expr:
+            response = self._table.query(
+                IndexName=CONFIG_USAGE_USER_LAST_UPDATED_IDX,
+                KeyConditionExpression=query_expr,
+                FilterExpression=filter_expr
+            )
+        else:
+            response = self._table.query(
+                IndexName=CONFIG_USAGE_USER_LAST_UPDATED_IDX,
+                KeyConditionExpression=query_expr,
+            )
+
+        items = response.get('Items', [])
+        usage_logs = [UsageLog(**item) for item in items]
+        for usage_log in usage_logs:
+            yield usage_log
+
+        while 'LastEvaluatedKey' in response:
+            if filter_expr:
+                response = self._table.query(IndexName=CONFIG_USAGE_USER_LAST_UPDATED_IDX,
+                                             ExclusiveStartKey=response['LastEvaluatedKey'],
+                                             KeyConditionExpression=query_expr,
+                                             FilterExpression=filter_expr)
+            else:
+                response = self._table.query(IndexName=CONFIG_USAGE_USER_LAST_UPDATED_IDX,
+                                             ExclusiveStartKey=response['LastEvaluatedKey'],
+                                             KeyConditionExpression=query_expr)
+
+
+            items = items + response.get('Items', [])
+            for usage_log in [UsageLog(**item) for item in items]:
+                yield usage_log
+
     def find_logs_by_time(self, before: int = None, after: int = None, filter: str = None,
-                          latest_log_only=True, exclude_names: List[str] = None) -> List[UsageLog]:
+                          latest_log_only=True, exclude_names: List[str] = None) -> Iterable[UsageLog]:
         """
         Yields UsageLogs incrementally as a Scan operation is completed. Yields occur incrementally
         to reduce memory overhead.
@@ -65,7 +106,8 @@ class UsageTrackerDao:
         matching_logs = [UsageLog(**item) for item in items]
         matching_logs = self.__filter_names_from_logs(matching_logs, exclude_names)
         log.info(f'Yielding {matching_logs}')
-        yield matching_logs
+        for matching_log in matching_logs:
+            yield matching_log
 
         while 'LastEvaluatedKey' in response:
             if filter_exp:
@@ -79,9 +121,10 @@ class UsageTrackerDao:
                                              KeyConditionExpression=query_expr)
 
             items = items + response.get('Items', [])
-            new_logs = [UsageLog(**item) for item in items]
-            new_logs = self.__filter_names_from_logs(new_logs, exclude_names)
-            yield new_logs
+            matching_logs = [UsageLog(**item) for item in items]
+            matching_logs = self.__filter_names_from_logs(matching_logs, exclude_names)
+            for matching_log in matching_logs:
+                yield matching_log
 
     def __filter_names_from_logs(self, logs: List[UsageLog], exclude_names: List[str]):
         if exclude_names:

@@ -1,7 +1,9 @@
 import time
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+from figgy.constants.data import SSM_GET
 
 
 class UsageLog(BaseModel):
@@ -11,6 +13,7 @@ class UsageLog(BaseModel):
     parameter_name: str
     last_updated: int
     user: str
+    action: str = Field(default=SSM_GET, required=False)
 
     def __gt__(self, other):
         if type(other) == UsageLog:

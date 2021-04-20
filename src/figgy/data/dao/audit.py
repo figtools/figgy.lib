@@ -146,7 +146,7 @@ class AuditDao:
 
     def get_log(self, ps_name: str, time: int) -> Optional[AuditLog]:
         """
-        Returns the matching audit log for the Parameter name & time
+        Returns the matching audit log for the Parameter name & time -- must match the EXACT time
         """
 
         key_expr = Key(AUDIT_PARAMETER_KEY_NAME).eq(ps_name) & Key(AUDIT_TIME_KEY_NAME).eq(time)
@@ -159,13 +159,30 @@ class AuditDao:
         else:
             return None
 
-    def get_deleted_value(self, audit_log: AuditLog) -> Optional[str]:
-        logs: List[AuditLog] = self.get_audit_logs(audit_log.parameter_name, before=audit_log.time)
+    def get_deleted_value(self, parameter_name: str, time: int) -> Optional[str]:
+        """
+        Find the value that was deleted by a delete action for an AuditLog
+        """
+        logs: List[AuditLog] = self.get_audit_logs(parameter_name, before=time)
         logs = [x for x in logs if x.action == SSM_PUT]
         logs = sorted(logs)
 
         if logs:
             return logs[-1].value
+        else:
+            return None
+
+    def get_put_log_before(self, parameter_name: str, time: int) -> Optional[AuditLog]:
+        """
+        Returns the latest PUT log for a parameter before specified time.
+        If no matching log is found, returns None
+        """
+        logs: List[AuditLog] = self.get_audit_logs(parameter_name, before=time)
+        logs = [x for x in logs if x.action == SSM_PUT]
+        logs = sorted(logs)
+
+        if logs:
+            return logs[-1]
         else:
             return None
 
@@ -214,22 +231,7 @@ class AuditDao:
 
             items = items + response.get('Items', [])
 
-        logs: Dict[str, List[AuditLog]] = {}
-
-        # Add to dict so we can sort to find latest of each type of config
-        for item in items:
-            name = item.get(AUDIT_PARAMETER_KEY_NAME)
-            new_item = AuditLog(**item)
-            logs[name] = logs.get(name) + [new_item] if logs.get(name) else [new_item]
-
-        # Sort, latest log should be at position 0
-        for key, value in logs.items():
-            logs[key] = sorted(value, reverse=True)
-
-        # return latest items
-        latest = [logs[key][0] for key, value in logs.items()]
-
-        return latest
+        return self.__get_latest_audit_logs(items)
 
     def find_logs_parallel(self, threads: int, filter: str = None, parameter_type: str = None,
                            before: int = None, after: int = None, action: str = None) -> List[AuditLog]:
@@ -248,3 +250,46 @@ class AuditDao:
             pool.close()
 
         return all_logs
+
+    def find_by_user(self, user: str, latest=False):
+        """
+        Find all logs associated with user, if latest = True, only return the latest
+        log for each parameter.
+        """
+
+        key_expr = Key(AUDIT_PARAMETER_ATTR_USER).eq(user) & Key(AUDIT_TIME_KEY_NAME).gt(0)
+
+        response = self._audit_table.query(
+            IndexName=AUDIT_IDX_USER_ID,
+            KeyConditionExpression=key_expr,
+        )
+
+        items = response.get('Items', [])
+
+        while 'LastEvaluatedKey' in response:
+            response = self._audit_table.query(ExclusiveStartKey=response['LastEvaluatedKey'],
+                                              IndexName=AUDIT_IDX_USER_ID,
+                                              KeyConditionExpression=key_expr)
+            items = items + response.get('Items', [])
+
+        if latest:
+            return self.__get_latest_audit_logs(items)
+        else:
+            return [AuditLog(**item) for item in items]
+
+    @staticmethod
+    def __get_latest_audit_logs(items: Dict) -> List[AuditLog]:
+        logs: Dict[str, List[AuditLog]] = {}
+
+        # Add to dict so we can sort to find latest of each type of config
+        for item in items:
+            name = item.get(AUDIT_PARAMETER_KEY_NAME)
+            new_item = AuditLog(**item)
+            logs[name] = logs.get(name) + [new_item] if logs.get(name) else [new_item]
+
+        # Sort, latest log should be at position 0
+        for key, value in logs.items():
+            logs[key] = sorted(value, reverse=True)
+
+        # return latest items
+        return [logs[key][0] for key, value in logs.items()]
