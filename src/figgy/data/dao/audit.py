@@ -187,7 +187,7 @@ class AuditDao:
             return None
 
     def find_logs(self, filter: str = None, parameter_type: str = None,
-                  before: int = None, after: int = None, action: str = None,
+                  before: int = None, after: int = None, action: str = None, latest: bool = False,
                   segment: int = 0, total_segments: int = 1) -> List[AuditLog]:
 
         log.info(f'Inputs: Filter: {filter}, param_type: {parameter_type}, before: {before} after: {after}')
@@ -199,20 +199,16 @@ class AuditDao:
             filter_exp = (Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_PUT) | Attr(AUDIT_ACTION_ATTR_NAME).eq(SSM_DELETE))
 
         if parameter_type:
-            log.info(f"Adding type: {parameter_type}")
             filter_exp = filter_exp & Attr(AUDIT_PARAMETER_ATTR_TYPE).eq(parameter_type)
 
         if filter:
-            log.info(f"Adding filter: {filter}")
             filter_exp = filter_exp & (Attr(AUDIT_PARAMETER_KEY_NAME).contains(filter) |
                                        Attr(AUDIT_PARAMETER_ATTR_USER).contains(filter))
 
         if before:
-            log.info(f"Adding before: {before}")
             filter_exp = filter_exp & (Attr(AUDIT_TIME_KEY_NAME).lt(int(before)))
 
         if after:
-            log.info(f"Adding after: {after}")
             filter_exp = filter_exp & Attr(AUDIT_TIME_KEY_NAME).gt(int(after))
 
         response = self._audit_table.scan(
@@ -231,23 +227,23 @@ class AuditDao:
 
             items = items + response.get('Items', [])
 
-        return self.__get_latest_audit_logs(items)
+        if latest:
+            return self.__get_latest_audit_logs(items)
+        else:
+            return [AuditLog(**item) for item in items]
 
     def find_logs_parallel(self, threads: int, filter: str = None, parameter_type: str = None,
-                           before: int = None, after: int = None, action: str = None) -> List[AuditLog]:
+                           before: int = None, after: int = None, action: str = None, latest: bool = False) -> List[AuditLog]:
         futures, all_logs = [], []
 
-        pool = ThreadPool(processes=threads)
-        try:
+        with ThreadPool(processes=threads) as pool:
             for i in range(0, threads):
                 thread = pool.apply_async(self.find_logs, args=(filter, parameter_type, before,
-                                                                after, action, i, threads))
+                                                                after, action, latest, i, threads))
                 futures.append(thread)
 
             for future in futures:
                 all_logs = all_logs + future.get()
-        finally:
-            pool.close()
 
         return all_logs
 

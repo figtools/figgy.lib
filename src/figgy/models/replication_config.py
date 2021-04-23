@@ -38,8 +38,13 @@ class ReplicationConfig(Serializable):
     @validator('run_env', pre=True, always=True)
     def init_run_env(cls, value, values):
         # this enables us to load via name run_env and env_alias.
-        if values.get('run_env'):
-            return RunEnv(env=values.get('run_env'))
+        run_env = values.get('run_env')
+
+        if run_env:
+            if isinstance(run_env, RunEnv):
+                return run_env
+            else:
+                return RunEnv(env=values.get('run_env'))
 
         if not value:
             value = "unknown"

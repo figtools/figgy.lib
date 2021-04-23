@@ -29,3 +29,10 @@ class UsageLog(BaseModel):
 
     def __hash__(self):
         return hash(f'{self.parameter_name}-{self.last_updated}-{self.user}')
+
+    @staticmethod
+    def empty(name: str):
+        return UsageLog(parameter_name=name,
+                        last_updated=0,
+                        user="N/A",
+                        action="None")
