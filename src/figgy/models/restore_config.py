@@ -2,8 +2,6 @@ from figgy.constants.data import *
 from decimal import Decimal
 from typing import List, Dict, TypeVar
 
-T = TypeVar('T', bound='RestoreConfig')
-
 
 class RestoreConfig:
     """
@@ -45,7 +43,7 @@ class RestoreConfig:
         }
 
     @staticmethod
-    def convert_to_model(items: List[Dict]) -> List[T]:
+    def convert_to_model(items: List[Dict]) -> List["RestoreConfig"]:
         models: List[RestoreConfig] = []
 
         for item in items:

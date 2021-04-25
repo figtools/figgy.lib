@@ -1,10 +1,14 @@
 from enum import Enum
 
+from pydantic import BaseModel, Field, validator
+
 from figgy.constants.models import REPL_TYPES
 from figgy.models.run_env import RunEnv
 from figgy.constants.data import *
 import getpass
-from typing import Dict, List
+from typing import Dict, List, Optional, Union
+
+from figgy.models.serializable import Serializable
 from figgy.utils.utils import *
 
 
@@ -16,31 +20,47 @@ class ReplicationType(Enum):
     APP = REPL_TYPE_APP
     MERGE = REPL_TYPE_MERGE
 
+    def __str__(self):
+        return self.value
 
-class ReplicationConfig:
+
+class ReplicationConfig(Serializable):
     """
     This model is used for storing / retrieving data from the `service-config-replication` table.
     """
+    destination: str
+    run_env: RunEnv = Field(None, alias="env_alias")
+    namespace: str
+    source: Union[str, List[str]]
+    type: ReplicationType
+    user: Optional[str]
 
-    def __init__(self, destination: str, run_env: RunEnv, namespace: str, source: str, type: ReplicationType,
-                 user: str = None):
-        self.destination = destination
-        self.run_env = run_env.env
-        self.namespace = namespace
-        self.source = source
-        self.type: str = type.value
-        self.user = user
+    @validator('run_env', pre=True, always=True)
+    def init_run_env(cls, value, values):
+        # this enables us to load via name run_env and env_alias.
+        run_env = values.get('run_env')
 
-        if user is None:
-            self.user = getpass.getuser()
+        if run_env:
+            if isinstance(run_env, RunEnv):
+                return run_env
+            else:
+                return RunEnv(env=values.get('run_env'))
 
-        self.props = {
-            REPL_RUN_ENV_KEY_NAME: self.run_env,
-            REPL_SOURCE_ATTR_NAME: self.source,
-            REPL_NAMESPACE_ATTR_NAME: self.namespace,
-            REPL_TYPE_ATTR_NAME: self.type,
-            REPL_USER_ATTR_NAME: self.user
-        }
+        if not value:
+            value = "unknown"
+
+        return RunEnv(env=value)
+
+    @validator('type', pre=True)
+    def init_type(cls, value):
+        return ReplicationType(value)
+
+    @validator('user', pre=True, always=True)
+    def init_user(cls, value):
+        if not value:
+            value = getpass.getuser()
+
+        return value
 
     @staticmethod
     def from_dict(conf: Dict, type: ReplicationType, run_env: RunEnv,

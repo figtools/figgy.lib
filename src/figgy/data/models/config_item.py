@@ -1,10 +1,7 @@
 import time
+
 from enum import Enum
-
-from dataclasses import dataclass
-from typing import Dict
-
-from figgy.constants.data import *
+from pydantic import Field, validator, BaseModel
 
 
 class ConfigState(Enum):
@@ -12,17 +9,17 @@ class ConfigState(Enum):
     ACTIVE = 1
 
 
-@dataclass(eq=True, frozen=True)
-class ConfigItem:
-    name: str
-    state: str
-    last_updated: int
+class ConfigItem(BaseModel):
+    name: str = Field(None, alias='parameter_name')
+    state: ConfigState
+    last_updated: int = time.time()
 
-    @staticmethod
-    def from_dict(obj: Dict) -> "ConfigItem":
-        name = obj.get(CACHE_PARAMETER_KEY_NAME, None)
-        last_updated = obj.get(CACHE_LAST_UPDATED_KEY_NAME, time.time())
-        state = obj.get(CACHE_STATE_ATTR_NAME, None)
+    @validator('state', pre=True)
+    def init_state(cls, value):
+        return ConfigState[value]
 
-        return ConfigItem(name=name, last_updated=last_updated, state=ConfigState[state])
+    def __lt__(self, o: "ConfigItem") -> bool:
+        return self.last_updated < o.last_updated
 
+    def __hash__(self):
+        return hash(f'{self.name}-{self.state.name}-{self.last_updated}')
