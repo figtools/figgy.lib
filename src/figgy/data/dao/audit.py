@@ -190,9 +190,6 @@ class AuditDao:
                   before: int = None, after: int = None, action: str = None, latest: bool = False,
                   segment: int = 0, total_segments: int = 1) -> List[AuditLog]:
 
-        log.info(f'Inputs: Filter: {filter}, param_type: {parameter_type}, before: {before} after: {after}')
-        log.info(f'Executing with segment: {segment} and total_segments: {total_segments}')
-
         if action:
             filter_exp = Attr(AUDIT_ACTION_ATTR_NAME).eq(action)
         else:
@@ -235,6 +232,8 @@ class AuditDao:
     def find_logs_parallel(self, threads: int, filter: str = None, parameter_type: str = None,
                            before: int = None, after: int = None, action: str = None, latest: bool = False) -> List[AuditLog]:
         futures, all_logs = [], []
+        log.info(f'Executing parallel scan across {threads} threads.')
+        log.info(f'Inputs: Filter: {filter}, param_type: {parameter_type}, before: {before} after: {after}')
 
         with ThreadPool(processes=threads) as pool:
             for i in range(0, threads):
@@ -244,6 +243,8 @@ class AuditDao:
 
             for future in futures:
                 all_logs = all_logs + future.get()
+
+            pool.close()  # shouldn't be necessary but I'm getting open files errors and troubleshooting.
 
         return all_logs
 
