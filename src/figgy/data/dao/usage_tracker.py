@@ -26,6 +26,27 @@ class UsageTrackerDao:
 
         self._table.put_item(Item=item)
 
+    def find_by_parameter(self, parameter: str) -> Iterable[UsageLog]:
+        log.info(f'Finding usage logs for parameter: {parameter}')
+        query_expr = Key(CONFIG_USAGE_PARAMETER_KEY).eq(parameter)
+
+        response = self._table.query(
+            KeyConditionExpression=query_expr,
+        )
+
+        items = response.get('Items', [])
+        usage_logs = [UsageLog(**item) for item in items]
+        for usage_log in usage_logs:
+            yield usage_log
+
+        while 'LastEvaluatedKey' in response:
+            response = self._table.query(ExclusiveStartKey=response['LastEvaluatedKey'],
+                                         KeyConditionExpression=query_expr)
+
+            items = items + response.get('Items', [])
+            for usage_log in [UsageLog(**item) for item in items]:
+                yield usage_log
+
     def find_logs_by_user(self, user: str, filter: str = None) -> Iterable[UsageLog]:
         log.info(f'Finding usage logs for user: {user}')
         query_expr = Key(CONFIG_USAGE_USER_KEY).eq(user) & Key(CONFIG_USAGE_LAST_UPDATED_KEY).gt(0)
@@ -61,7 +82,6 @@ class UsageTrackerDao:
                 response = self._table.query(IndexName=CONFIG_USAGE_USER_LAST_UPDATED_IDX,
                                              ExclusiveStartKey=response['LastEvaluatedKey'],
                                              KeyConditionExpression=query_expr)
-
 
             items = items + response.get('Items', [])
             for usage_log in [UsageLog(**item) for item in items]:
