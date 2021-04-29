@@ -3,6 +3,7 @@ from typing import Optional
 from pydantic import BaseModel, Field, validator
 
 from figgy.models.enums.fig_type import FigType
+from figgy.utils.exceptions import FiggyValidationError
 
 
 class Fig(BaseModel):
@@ -24,6 +25,13 @@ class Fig(BaseModel):
     def set_null(cls, value):
         if value == "null":
             value = None
+
+        return value
+
+    @validator("name", "value")
+    def validate_not_null(cls, value, values, **kwargs):
+        if not value:
+            raise FiggyValidationError("Parameter cannot be empty.")
 
         return value
 
