@@ -55,3 +55,8 @@ SSM_PUT = 'PutParameter'
 SSM_DELETE = 'DeleteParameter'
 SSM_GET = 'GetParameter'
 SSM_INTELLIGENT_TIERING = 'Intelligent-Tiering'
+
+# KMS Constants
+ENCRYPTION_CONTEXT_ENCRYPTOR_KEY = 'encryptor'
+ENCRYPTION_CONTEXT_ENCRYPTOR_DEFAULT_VALUE = 'figgy'
+ENCRYPTION_CONTEXT_PASSWORD_KEY = 'password'

@@ -1,3 +1,4 @@
+import json
 import logging
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional, Dict, Union
@@ -258,7 +259,7 @@ class SsmDao:
                 raise
 
     @Utils.retry
-    def set_parameter(self, key, value, desc, type=None, key_id=None) -> None:
+    def set_parameter(self, key, value, desc, type=None, key_id=None, policies: List[Dict] = None) -> None:
         """
         Sets a parameter in PS.
         Args:
@@ -267,31 +268,58 @@ class SsmDao:
             desc: Description
             type: SecureString or String
             key_id: KMS Key Id to use for encryption if SecureString
+            policies: Optional DICT representing a valid policy for a parameter
         """
         desc = desc if desc else ''
+
+        if policies:
+            policies = json.dumps(policies)
 
         if not type:
             type = SSM_SECURE_STRING if key_id else SSM_STRING
 
         if key_id:
-            self._ssm.put_parameter(
-                Name=key,
-                Description=desc,
-                Value=value,
-                Overwrite=True,
-                Type=type,
-                KeyId=key_id,
-                Tier=SSM_INTELLIGENT_TIERING
-            )
+            if policies:
+                self._ssm.put_parameter(
+                    Name=key,
+                    Description=desc,
+                    Value=value,
+                    Overwrite=True,
+                    Type=type,
+                    KeyId=key_id,
+                    Tier=SSM_INTELLIGENT_TIERING,
+                    Policies=policies,
+                )
+            else:
+                self._ssm.put_parameter(
+                    Name=key,
+                    Description=desc,
+                    Value=value,
+                    Overwrite=True,
+                    Type=type,
+                    KeyId=key_id,
+                    Tier=SSM_INTELLIGENT_TIERING,
+                )
         else:
-            self._ssm.put_parameter(
-                Name=key,
-                Description=desc,
-                Value=value,
-                Overwrite=True,
-                Type=type,
-                Tier=SSM_INTELLIGENT_TIERING
-            )
+            if policies:
+                self._ssm.put_parameter(
+                    Name=key,
+                    Description=desc,
+                    Value=value,
+                    Overwrite=True,
+                    Type=type,
+                    Tier=SSM_INTELLIGENT_TIERING,
+                    Policies=policies,
+                )
+            else:
+                self._ssm.put_parameter(
+                    Name=key,
+                    Description=desc,
+                    Value=value,
+                    Overwrite=True,
+                    Type=type,
+                    Tier=SSM_INTELLIGENT_TIERING
+                )
 
     @Utils.retry
     def get_parameter_details(self, name: str, target_version: int = 0) -> Tuple[Dict, bool]:
