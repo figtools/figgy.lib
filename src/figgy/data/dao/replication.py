@@ -86,7 +86,7 @@ class ReplicationDao:
             config: ReplicationConfig -> a hydrated replication config object.
         """
         item = config.dict()
-        item['run_env'] = item['run_env']['env']  # Convert env to str for ddb model format.
+        item[REPL_RUN_ENV_KEY_NAME] = item['run_env']['env']  # Convert env to str for ddb model format.
 
         self._config_repl_table.put_item(Item=item)
 
